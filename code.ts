@@ -1,4 +1,4 @@
-// FigJam Mind Map with beautiful UI
+// FigJam Mind Map with beautiful UI and dynamic font sizing
 figma.showUI(__html__, { width: 540, height: 800 });
 
 interface TreeNode {
@@ -17,7 +17,6 @@ figma.ui.onmessage = async (msg) => {
       figma.closePlugin();
     } catch (error: any) {
       figma.notify('Error: ' + error.message);
-      // console.log(error);
     }
   }
 };
@@ -29,169 +28,183 @@ figma.on('run', async ({ command }: RunEvent) => {
 });
 
 async function createMindMap(data: TreeNode[]) {
-  // console.log('Starting mind map creation with', data.length, 'nodes');
+  console.log('Starting mind map creation with', data.length, 'nodes');
+  // JSON is already a tree structure - no need to build!
+  // Just use it directly
+  const treeData = data;
+  console.log('Using existing tree structure with', treeData.length, 'root nodes');
+
+  // Calculate maximum depth of tree
+  function getMaxDepth(nodes: TreeNode[], currentDepth: number = 0): number {
+    if (!nodes || nodes.length === 0) return currentDepth;
+   
+    let maxDepth = currentDepth;
+    nodes.forEach(node => {
+      if (node.children && node.children.length > 0) {
+        const childDepth = getMaxDepth(node.children, currentDepth + 1);
+        maxDepth = Math.max(maxDepth, childDepth);
+      }
+    });
+   
+    return maxDepth;
+  }
+
+  // Calculate tree depth
+  const maxDepth = getMaxDepth(treeData);
+  console.log('Max tree depth:', maxDepth);
+
+  // Dynamic font size settings - scaled up dramatically with steeper gradient
+  const maxFontSize = 600;
+  const minFontSize = 60;
+  const power = 0.5; // Power <1 for steeper initial drop (dramatic size decrease early)
+
+  function getFontSize(level: number): number {
+    if (maxDepth === 0) return maxFontSize;
+    const normalizedLevel = Math.pow(level / maxDepth, power);
+    const fontSize = maxFontSize - ((maxFontSize - minFontSize) * normalizedLevel);
+    return Math.max(minFontSize, Math.round(fontSize));
+  }
+
+  // Accurate node dimensions using temporary text measurement
+  async function getNodeDimensions(text: string, fontSize: number): Promise<{width: number, height: number}> {
+    const tempText = figma.createText();
+    tempText.characters = text;
+    tempText.fontName = { family: "Inter", style: "Medium" };
+    tempText.fontSize = fontSize;
+    tempText.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.1, b: 0.1 } }];
+    const textWidth = tempText.width;
+    const textHeight = tempText.height;
+    tempText.remove();
+    const paddingX = 40;
+    const paddingY = 20;
+    const minWidth = 200;
+    const width = Math.max(minWidth, textWidth + 2 * paddingX);
+    const minHeight = 140;
+    const height = Math.max(minHeight, textHeight + 2 * paddingY);
+    return { width, height };
+  }
 
   const centerX = figma.viewport.center.x;
   const centerY = figma.viewport.center.y;
+  const horizontalSpacing = 1000; // Increased for larger nodes
+  const verticalSpacing = 500; // Increased for taller nodes
 
-  // Layout settings - increased for better spacing
-  const nodeWidth = 180;
-  const nodeHeight = 80;
-  const horizontalSpacing = 200; // Much more space between siblings
-  const verticalSpacing = 140;   // Space between parent-child levels
-
-  // Load font
   await figma.loadFontAsync({ family: "Inter", style: "Medium" });
 
   const colors = [
-    { r: 0.95, g: 0.95, b: 0.95 },  // gray - level 0
-    { r: 1, g: 0.71, b: 0.76 },     // pink - level 1
-    { r: 0.68, g: 0.85, b: 0.9 },   // blue - level 2
-    { r: 0.56, g: 0.93, b: 0.56 },  // green - level 3
-    { r: 1, g: 0.85, b: 0.73 },     // peach - level 4
-    { r: 0.9, g: 0.8, b: 1 },       // purple - level 5
-    { r: 1, g: 0.95, b: 0.6 },      // yellow - level 6
+    { r: 0.95, g: 0.95, b: 0.95 },
+    { r: 1, g: 0.71, b: 0.76 },
+    { r: 0.68, g: 0.85, b: 0.9 },
+    { r: 0.56, g: 0.93, b: 0.56 },
+    { r: 1, g: 0.85, b: 0.73 },
+    { r: 0.9, g: 0.8, b: 1 },
+    { r: 1, g: 0.95, b: 0.6 },
   ];
 
   const allShapes: ShapeWithTextNode[] = [];
   const connectorsToCreate: { parentId: string; childId: string; }[] = [];
 
-  // Create shape
-  function createShape(text: string, x: number, y: number, level: number): ShapeWithTextNode {
+  async function createShape(text: string, x: number, y: number, level: number, dims: {width: number, height: number}): Promise<ShapeWithTextNode> {
+    const fontSize = getFontSize(level);
     const shape = figma.createShapeWithText();
     shape.x = x;
     shape.y = y;
-    shape.resize(nodeWidth, nodeHeight);
+    shape.resize(dims.width, dims.height);
     shape.fills = [{ type: 'SOLID', color: colors[level % colors.length] }];
     shape.strokes = [{ type: 'SOLID', color: { r: 0.7, g: 0.7, b: 0.7 } }];
     shape.strokeWeight = 2;
     shape.shapeType = 'ROUNDED_RECTANGLE';
     shape.text.characters = text;
-    shape.text.fontSize = 14;
+    shape.text.fontSize = fontSize;
     shape.text.fontName = { family: "Inter", style: "Medium" };
     shape.text.fills = [{ type: 'SOLID', color: { r: 0.1, g: 0.1, b: 0.1 } }];
-
+    console.log(`Node: "${text}" (Level ${level}) - Font: ${fontSize}px, Size: ${dims.width}x${dims.height}`);
     figma.currentPage.appendChild(shape);
+    allShapes.push(shape);
     return shape;
   }
 
-  // Calculate subtree width recursively
-  function calculateSubtreeWidth(node: TreeNode): number {
+  async function calculateSubtreeWidth(node: TreeNode, level: number): Promise<number> {
+    const fontSize = getFontSize(level);
+    const dims = await getNodeDimensions(node.name, fontSize);
+   
     if (!node.children || node.children.length === 0) {
-      return nodeWidth;
+      return dims.width;
     }
-
     let totalChildWidth = 0;
-    node.children.forEach((child) => {
-      totalChildWidth += calculateSubtreeWidth(child);
-    });
-
-    // Add spacing between children
-    totalChildWidth += (node.children.length - 1) * horizontalSpacing;
-
-    // Parent needs to be at least as wide as its children
-    return Math.max(nodeWidth, totalChildWidth);
+    for (const child of node.children) {
+      totalChildWidth += await calculateSubtreeWidth(child, level + 1);
+    }
+    totalChildWidth += Math.max(0, node.children.length - 1) * horizontalSpacing;
+    return Math.max(dims.width, totalChildWidth);
   }
 
-  // Recursive layout with proper spacing
-  function layoutTree(node: TreeNode, x: number, y: number, level: number): ShapeWithTextNode {
-    const shape = createShape(node.name, x, y, level);
-    allShapes.push(shape);
-
+  async function layoutTree(node: TreeNode, x: number, y: number, level: number): Promise<ShapeWithTextNode> {
+    const fontSize = getFontSize(level);
+    const dims = await getNodeDimensions(node.name, fontSize);
+    const shape = await createShape(node.name, x, y, level, dims);
+   
     if (node.children && node.children.length > 0) {
-      const childY = y + nodeHeight + verticalSpacing;
-
-      // Calculate width needed for each child subtree
-      const childWidths: number[] = [];
-      let totalChildWidth = 0;
-
-      node.children.forEach((child) => {
-        const width = calculateSubtreeWidth(child);
-        childWidths.push(width);
-        totalChildWidth += width;
-      });
-
-      // Add spacing between children
-      totalChildWidth += (node.children.length - 1) * horizontalSpacing;
-
-      // Start X position - center children under parent
-      let childX = x + (nodeWidth / 2) - (totalChildWidth / 2);
-
-      node.children.forEach((child, index) => {
-        const childWidth = childWidths[index];
-        // Position child at center of its allocated space
-        const childCenterX = childX + (childWidth / 2) - (nodeWidth / 2);
-
-        const childShape = layoutTree(child, childCenterX, childY, level + 1);
-
-        // Store connector info
+      const childY = y + dims.height + verticalSpacing;
+      const childWidths: number[] = await Promise.all(
+        node.children.map(child => calculateSubtreeWidth(child, level + 1))
+      );
+      let totalChildWidth = childWidths.reduce((sum, w) => sum + w, 0);
+      totalChildWidth += Math.max(0, node.children.length - 1) * horizontalSpacing;
+      let childSubtreeLeftX = x + (dims.width / 2) - (totalChildWidth / 2);
+      for (let i = 0; i < node.children.length; i++) {
+        const child = node.children[i];
+        const childWidth = childWidths[i];
+        const childFontSize = getFontSize(level + 1);
+        const childDims = await getNodeDimensions(child.name, childFontSize);
+        const childNodeLeftX = childSubtreeLeftX + (childWidth / 2) - (childDims.width / 2);
+        const childShape = await layoutTree(child, childNodeLeftX, childY, level + 1);
         connectorsToCreate.push({
           parentId: shape.id,
           childId: childShape.id
         });
-
-        // Move to next child position
-        childX += childWidth + horizontalSpacing;
-      });
+        childSubtreeLeftX += childWidth + horizontalSpacing;
+      }
     }
-
     return shape;
   }
 
-  // Create all shapes first
-  if (data && data.length > 0) {
-    // Calculate total width needed for all root nodes
-    let totalRootWidth = 0;
-    const rootWidths: number[] = [];
-
-    data.forEach((rootNode) => {
-      const width = calculateSubtreeWidth(rootNode);
-      rootWidths.push(width);
-      totalRootWidth += width;
-    });
-
-    totalRootWidth += (data.length - 1) * horizontalSpacing * 2; // Extra space between root trees
-
-    // Start position - centered
-    let rootX = centerX - (totalRootWidth / 2);
+  if (treeData && treeData.length > 0) {
+    const rootWidths: number[] = await Promise.all(
+      treeData.map(rootNode => calculateSubtreeWidth(rootNode, 0))
+    );
+    let totalRootWidth = rootWidths.reduce((sum, w) => sum + w, 0);
+    totalRootWidth += Math.max(0, treeData.length - 1) * horizontalSpacing * 2;
+    let rootSubtreeLeftX = centerX - (totalRootWidth / 2);
     const rootY = centerY - 400;
-
-    data.forEach((rootNode, index) => {
-      const rootWidth = rootWidths[index];
-      const rootCenterX = rootX + (rootWidth / 2) - (nodeWidth / 2);
-
-      layoutTree(rootNode, rootCenterX, rootY, 0);
-
-      rootX += rootWidth + horizontalSpacing * 2;
-    });
+    for (let i = 0; i < treeData.length; i++) {
+      const rootNode = treeData[i];
+      const rootWidth = rootWidths[i];
+      const rootFontSize = getFontSize(0);
+      const rootDims = await getNodeDimensions(rootNode.name, rootFontSize);
+      const rootNodeLeftX = rootSubtreeLeftX + (rootWidth / 2) - (rootDims.width / 2);
+      await layoutTree(rootNode, rootNodeLeftX, rootY, 0);
+      rootSubtreeLeftX += rootWidth + horizontalSpacing * 2;
+    }
   }
 
-  // Create connectors AFTER all shapes exist
-  // console.log(`Creating ${connectorsToCreate.length} connectors...`);
   connectorsToCreate.forEach((conn) => {
     const connector = figma.createConnector();
     connector.connectorLineType = 'ELBOWED';
-
-    // Use bottom center of parent and top center of child
     connector.connectorStart = {
       endpointNodeId: conn.parentId,
-      magnet: 'BOTTOM'  // Changed from AUTO to BOTTOM
+      magnet: 'BOTTOM'
     };
     connector.connectorEnd = {
       endpointNodeId: conn.childId,
-      magnet: 'TOP'     // Changed from AUTO to TOP
+      magnet: 'TOP'
     };
-
-    connector.strokeWeight = 2;
+    connector.strokeWeight = 4;
     connector.strokes = [{ type: 'SOLID', color: { r: 0.6, g: 0.6, b: 0.6 } }];
   });
 
-  // Zoom to fit
   if (allShapes.length > 0) {
     figma.viewport.scrollAndZoomIntoView(allShapes);
   }
-
-  figma.notify(`Done: ${allShapes.length} shapes and ${connectorsToCreate.length} connectors`);
-
-  // console.log(`Done: ${allShapes.length} shapes and ${connectorsToCreate.length} connectors`);
+  figma.notify(`✅ ${allShapes.length} nodes, ${connectorsToCreate.length} connectors`);
 }
