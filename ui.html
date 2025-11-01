@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Mind Map Importer</title>
+  <style>
+    :root {
+      --bg: #f5f5f5;
+      --text: #111;
+      --subtle: #555;
+      --border: #000;
+      --yellow: #ffe87c;
+      --blue: #b3d4ff;
+      --red: #ffb3b3;
+      --tab-blue: #e4f0ff;
+      --tab-yellow: #fff8d6;
+      --tab-red: #ffe4e4;
+      --purple: #e0b3ff;
+      --display-block: block;
+      --display-hidden: hidden;
+    }
+
+    body.dark {
+      --bg: #111;
+      --text: #f5f5f5;
+      --subtle: #bbb;
+      --border: #f5f5f5;
+      --yellow: #665c00;
+      --blue: #1b2738;
+      --red: #3a1a1a;
+      --tab-blue: #24344a;
+      --tab-yellow: #4a431f;
+      --tab-red: #4a1f1f;
+      --purple: #402a53;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      padding: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: var(--text);
+      overflow: hidden;
+      transition: 0.3s background;
+    }
+
+    /* Card */
+    .card {
+      position: relative;
+      width: 540px;
+      height: 700px;
+      background: var(--yellow);
+      border: 4px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 6px 6px 0 var(--border);
+      transition: 0.3s background, 0.3s border;
+      display: flex;
+      flex-direction: column;
+      overflow: clip;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      text-align: center;
+      color: var(--subtle);
+      margin-bottom: 24px;
+    }
+
+    .toolbar {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* Theme toggle button */
+    #toggleTheme {
+      padding: 6px;
+      background: var(--tab-yellow);
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      box-shadow: 2px 2px 0 var(--border);
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    #toggleTheme:hover {
+      background: var(--tab-blue);
+    }
+
+    /* Icons visibility */
+    #lightTheme {
+      display: inline;
+    }
+
+    #darkTheme {
+      display: none;
+    }
+
+    body.dark #lightTheme {
+      display: none;
+    }
+
+    body.dark #darkTheme {
+      display: inline;
+    }
+
+    .small-btn {
+      font-size: 13px;
+      padding: 6px 10px;
+      background: var(--tab-yellow);
+      color: var(--text);
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 2px 2px 0 var(--border);
+      transition: 0.2s;
+    }
+
+    .small-btn:hover {
+      background: var(--tab-blue);
+    }
+
+    /* Tabs */
+    .tabs {
+      min-height: 50px;
+      max-height: 55px;
+      display: flex;
+      border: 4px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px 0;
+      text-align: center;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+      border-right: 4px solid var(--border);
+      transition: background 0.25s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tab:last-child {
+      border-right: none;
+    }
+
+    .tab.upload-active {
+      background: var(--tab-blue);
+    }
+
+    .tab.paste-active {
+      background: var(--tab-red);
+    }
+
+    .tab:hover {
+      background: var(--tab-yellow);
+    }
+
+    .svg-tab-text-container {
+      display: flex;
+      flex-direction: row;
+      gap: 9px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Sections 
+    border: 4px solid var(--border);
+    */
+    #uploadSection,
+    #pasteSection {
+      border-radius: 14px;
+      padding: 0px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 450px;
+      max-height: 550px;
+      transition: 0.3s;
+      overflow: clip;
+    }
+
+    #uploadSection {
+      background: var(--tab-blue);
+    }
+
+    #pasteSection {
+      background: var(--tab-red);
+    }
+
+    .upload-box {
+      width: 100%;
+      height: 100%;
+      min-height: 250px;
+      max-height: 450px;
+      border: 4px dashed var(--border);
+      border-radius: 10px;
+      background: var(--tab-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .upload-box:hover,
+    .upload-box.dragover {
+      background: white;
+    }
+
+    .file-name {
+      margin-top: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    textarea {
+      width: 100%;
+      height: 100%;
+      min-height: 350px;
+      max-height: 450px;
+      border: 4px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 14px;
+      font-family: monospace;
+      resize: none;
+      overflow-y: auto;
+      background: white;
+    }
+
+    textarea:focus {
+      outline: none;
+      background: var(--tab-yellow);
+    }
+
+    /* Purple import button */
+    #importBtn {
+      width: 100%;
+      margin-top: 24px;
+      padding: 14px;
+      background: var(--purple);
+      color: var(--text);
+      border: 4px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 5px 5px 0 var(--border);
+      transition: 0.2s;
+    }
+
+    #importBtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 7px 7px 0 var(--border);
+      background: var(--tab-yellow);
+    }
+
+    #importBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 5px 5px 0 var(--border);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <div class="toolbar">
+      <button class="small-btn" id="toggleTheme">
+        <svg id="lightTheme" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2" />
+          <path d="M12 20v2" />
+          <path d="m4.93 4.93 1.41 1.41" />
+          <path d="m17.66 17.66 1.41 1.41" />
+          <path d="M2 12h2" />
+          <path d="M20 12h2" />
+          <path d="m6.34 17.66-1.41 1.41" />
+          <path d="m19.07 4.93-1.41 1.41" />
+        </svg>
+        <svg id="darkTheme" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 5h4" />
+          <path d="M20 3v4" />
+          <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />
+        </svg>
+      </button>
+    </div>
+
+    <h1>Mind Map Importer</h1>
+
+    <div class="tabs">
+      <div class="tab upload-active" id="fileTab">
+        <div class="svg-tab-text-container">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-monitor-up-icon lucide-monitor-up">
+            <path d="m9 10 3-3 3 3" />
+            <path d="M12 13V7" />
+            <rect width="20" height="14" x="2" y="3" rx="2" />
+            <path d="M12 17v4" />
+            <path d="M8 21h8" />
+          </svg>
+          <p>
+            Upload File
+          </p>
+
+        </div>
+      </div>
+      <div class="tab" id="pasteTab">
+        <div class="svg-tab-text-container">
+
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clipboard-paste-icon lucide-clipboard-paste">
+            <path d="M11 14h10" />
+            <path d="M16 4h2a2 2 0 0 1 2 2v1.344" />
+            <path d="m17 18 4-4-4-4" />
+            <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 1.793-1.113" />
+            <rect x="8" y="2" width="8" height="4" rx="1" />
+          </svg>
+          <p>
+            Paste JSON
+          </p>
+
+        </div>
+
+      </div>
+    </div>
+
+    <div id="uploadSection">
+      <div class="upload-box" id="dropArea">Drop or click to upload</div>
+      <div class="file-name" id="fileName" style="display:none;"></div>
+      <input type="file" id="fileInput" accept=".json" style="display:none;">
+    </div>
+
+    <div id="pasteSection" style="display:none;">
+      <textarea id="jsonTextarea" placeholder='{"name":"Root","children":[]}'></textarea>
+    </div>
+
+    <button id="importBtn" disabled>Import Mind Map</button>
+  </div>
+
+  <script>
+    const fileTab = document.getElementById('fileTab');
+    const pasteTab = document.getElementById('pasteTab');
+    const uploadSection = document.getElementById('uploadSection');
+    const pasteSection = document.getElementById('pasteSection');
+    const fileInput = document.getElementById('fileInput');
+    const fileName = document.getElementById('fileName');
+    const textarea = document.getElementById('jsonTextarea');
+    const importBtn = document.getElementById('importBtn');
+    const dropArea = document.getElementById('dropArea');
+    const toggleTheme = document.getElementById('toggleTheme');
+    let jsonSource = null;
+
+    function updateButton() {
+      importBtn.disabled = !jsonSource;
+    }
+
+    function activateUploadTab() {
+      fileTab.classList.add("upload-active");
+      pasteTab.classList.remove("paste-active");
+      uploadSection.style.display = "block";
+      pasteSection.style.display = "none";
+      jsonSource = null;
+      updateButton();
+    }
+
+    function activatePasteTab() {
+      pasteTab.classList.add("paste-active");
+      fileTab.classList.remove("upload-active");
+      uploadSection.style.display = "none";
+      pasteSection.style.display = "block";
+      jsonSource = textarea.value.trim() || null;
+      updateButton();
+    }
+    fileTab.onclick = activateUploadTab;
+    pasteTab.onclick = activatePasteTab;
+    dropArea.onclick = () => fileInput.click();
+    fileInput.onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      fileName.textContent = file.name;
+      fileName.style.display = 'block';
+      const r = new FileReader();
+      r.onload = e => {
+        jsonSource = e.target.result;
+        updateButton();
+      };
+      r.readAsText(file);
+    };
+    dropArea.ondragenter = dropArea.ondragover = e => {
+      e.preventDefault();
+      dropArea.classList.add("dragover");
+    };
+    dropArea.ondragleave = dropArea.ondrop = e => {
+      e.preventDefault();
+      dropArea.classList.remove("dragover");
+    };
+    // Auto-format JSON on input
+    textarea.addEventListener('input', () => {
+      try {
+        const parsed = JSON.parse(textarea.value);
+        textarea.value = JSON.stringify(parsed, null, 2);
+        jsonSource = textarea.value;
+      } catch {
+        jsonSource = textarea.value.trim() || null;
+      }
+      updateButton();
+    });
+    toggleTheme.onclick = () => document.body.classList.toggle("dark");
+    importBtn.onclick = () => {
+      try {
+        parent.postMessage({
+          pluginMessage: {
+            type: 'import',
+            data: JSON.parse(jsonSource)
+          }
+        }, '*');
+      } catch {
+        alert("Invalid JSON");
+      }
+    };
+  </script>
+</body>
+
+</html>
