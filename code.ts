@@ -15,8 +15,9 @@ figma.ui.onmessage = async (msg) => {
       await createMindMap(msg.data);
       figma.notify('Mind map created successfully!');
       figma.closePlugin();
-    } catch (error: any) {
-      figma.notify('Error: ' + error.message);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "UnKnown error"
+      figma.notify(msg);
       // console.log(error);
     }
   }
