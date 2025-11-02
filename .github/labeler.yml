@@ -12,6 +12,3 @@ docs:
 
 chore:
   - head-branch: '^chore/.*'
-
-release:
-  - base-branch: 'main'
