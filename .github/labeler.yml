@@ -1,0 +1,11 @@
+feature:
+  - 'src/**'
+  - 'lib/**'
+bugfix:
+  - 'fix/**'
+refactor:
+  - '**/*refactor*'
+documentation:
+  - 'README.md'
+  - 'CONTRIBUTING.md'
+  - '.github/**'
