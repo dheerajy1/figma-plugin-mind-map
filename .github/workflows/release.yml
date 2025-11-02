@@ -17,11 +17,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      - run: npm ci
+      # Install pnpm
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
 
-      - name: Run semantic-release
+      # Install dependencies using pnpm
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Run semantic release
+      - name: Release
         run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
