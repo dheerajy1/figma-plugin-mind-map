@@ -1,0 +1,18 @@
+name: Enforce PR Source Branch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  restrict-merge-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if PR comes from allowed branch
+        run: |
+          if [ "${{ github.head_ref }}" != "developer" ]; then
+            echo "❌ Only pull requests from 'developer' branch are allowed into 'main'."
+            echo "PR attempted from: ${{ github.head_ref }}"
+            exit 1
+          fi

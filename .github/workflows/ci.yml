@@ -12,8 +12,12 @@ on:
       - feature/**
 
 jobs:
+
+  # ---------------------------
+  # ✅ 1) Build & Lint Job
+  # ---------------------------
   build_and_lint:
-    name: CI
+    name: Build & Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -24,3 +28,93 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npm run lint
+
+  # ---------------------------
+  # ✅ 2) Enforce Branch Naming
+  # Only allow feature/* → developer → main
+  # ---------------------------
+  validate_branch_name:
+    name: Validate Branch Naming
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: "Check source branch name"
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "Branch name: $BRANCH"
+          if [[ "$BRANCH" != feature/* && "$BRANCH" != developer && "$BRANCH" != main ]]; then
+            echo "❌ Invalid branch name. Allowed:"
+            echo " - feature/*"
+            echo " - developer"
+            echo " - main"
+            exit 1
+          fi
+        shell: bash
+
+  # ---------------------------
+  # ✅ 3) Enforce Semantic PR Title
+  # "feat:", "fix:", "chore:", "refactor:", etc.
+  # ---------------------------
+  validate_pr_title:
+    name: Validate PR Title Format
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: "Check PR Title"
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------------
+  # ✅ 4) Validate PR Checklist + Auto Promote Draft
+  # ---------------------------
+  verify_pr_template:
+    name: Validate PR Checklist
+    runs-on: ubuntu-latest
+    if: >
+      (github.event.pull_request.base.ref == 'developer' ||
+       github.event.pull_request.base.ref == 'main')
+
+    steps:
+      - name: Check PR Body for Checklist
+        id: prcheck
+        run: |
+          body=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH")
+          if [[ "$body" == *"[ ]"* ]]; then
+            echo "missing=true" >> $GITHUB_OUTPUT
+          else
+            echo "missing=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "Status Check: Checklist Missing ❌"
+        if: steps.prcheck.outputs.missing == 'true'
+        run: |
+          echo "Checklist Missing ❌"
+          exit 1
+
+      - name: "Status Check: Checklist Completed ✅"
+        if: steps.prcheck.outputs.missing == 'false'
+        run: |
+          echo "Checklist Completed ✅"
+
+      - name: Leave Comment if Checklist is Incomplete
+        if: steps.prcheck.outputs.missing == 'true'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ⚠️ **Checklist items are incomplete.**
+            Please check all required items before marking this PR ready.
+
+      - name: Auto-Mark PR Ready for Review When Checklist Complete
+        if: steps.prcheck.outputs.missing == 'false' && github.event.pull_request.draft == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              draft: false
+            })
