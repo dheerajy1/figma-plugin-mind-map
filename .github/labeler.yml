@@ -1,11 +1,14 @@
 feature:
-  - 'src/**'
-  - 'lib/**'
-bugfix:
-  - 'fix/**'
+  - head-branch: '^feature/.*'
+
+fix:
+  - head-branch: '^fix/.*'
+
 refactor:
-  - '**/*refactor*'
-documentation:
-  - 'README.md'
-  - 'CONTRIBUTING.md'
-  - '.github/**'
+  - head-branch: '^refactor/.*'
+
+docs:
+  - head-branch: '^docs/.*'
+
+chore:
+  - head-branch: '^chore/.*'
