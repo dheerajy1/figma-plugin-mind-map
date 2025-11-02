@@ -1,42 +1,115 @@
-# figma-plugin-mind-map
-figma plugin that takes json input and generates mind map.
-Below are the steps to get your plugin running. You can also find instructions at:
+# Figma Plugin — JSON to Mind Map
 
-  https://www.figma.com/plugin-docs/plugin-quickstart-guide/
+This plugin converts a JSON structure into a visual **mind map** inside Figma.  
+It automatically creates nodes and connectors based on hierarchy, making it easy to visualize structured ideas, outlines, research notes, and planning trees.
 
-This plugin template uses Typescript and NPM, two standard tools in creating JavaScript applications.
+---
 
-First, download Node.js which comes with NPM. This will allow you to install TypeScript and other
-libraries. You can find the download link here:
+## 🌳 Example Input
 
-  https://nodejs.org/en/download/
+```json
+{
+  "title": "Project Plan",
+  "children": [
+    { "title": "Research" },
+    { "title": "Design" },
+    { 
+      "title": "Development",
+      "children": [
+        { "title": "Frontend" },
+        { "title": "Backend" }
+      ]
+    }
+  ]
+}
+```
 
-Next, install TypeScript using the command:
+### Result (generated inside Figma):
+- Project Plan  
+  ├─ Research  
+  ├─ Design  
+  └─ Development  
+      ├─ Frontend  
+      └─ Backend  
 
-  npm install -g typescript
+---
 
-Finally, in the directory of your plugin, get the latest type definitions for the plugin API by running:
+## 🧭 How to Use the Plugin
 
-  npm install --save-dev @figma/plugin-typings
+1. Open your Figma file.
+2. Run the plugin: **Plugins → JSON Mind Map**
+3. Paste your JSON structure into the input panel.
+4. Click **Generate**.
+5. The mind map will appear on the canvas.
 
-If you are familiar with JavaScript, TypeScript will look very familiar. In fact, valid JavaScript code
-is already valid Typescript code.
+> Tip: Validate JSON here if needed: https://jsonlint.com
 
-TypeScript adds type annotations to variables. This allows code editors such as Visual Studio Code
-to provide information about the Figma API while you are writing code, as well as help catch bugs
-you previously didn't notice.
+---
 
-For more information, visit https://www.typescriptlang.org/
+## ✨ Features
 
-Using TypeScript requires a compiler to convert TypeScript (code.ts) into JavaScript (code.js)
-for the browser to run.
+| Feature | Status |
+|--------|--------|
+| Convert JSON → Mind Map | ✅ |
+| Auto-create nodes & connectors | ✅ |
+| Supports unlimited nested children | ✅ |
+| Clean layout spacing | ✅ |
+| Drag and rearrange nodes freely after generation | ✅ |
 
-We recommend writing TypeScript code using Visual Studio code:
+---
 
-1. Download Visual Studio Code if you haven't already: https://code.visualstudio.com/.
-2. Open this directory in Visual Studio Code.
-3. Compile TypeScript to JavaScript: Run the "Terminal > Run Build Task..." menu item,
-    then select "npm: watch". You will have to do this again every time
-    you reopen Visual Studio Code.
+## 🛠 Development Setup (Figma Official Guidelines)
 
-That's it! Visual Studio Code will regenerate the JavaScript file every time you save.
+Original docs:  
+https://www.figma.com/plugin-docs/plugin-quickstart-guide/
+
+This plugin uses:
+- **TypeScript**
+- **NPM**
+- **@figma/plugin-typings**
+
+### Requirements
+
+Download Node.js:  
+https://nodejs.org/en/download/
+
+Install TypeScript:
+```
+npm install -g typescript
+```
+
+Install Figma type definitions:
+```
+npm install --save-dev @figma/plugin-typings
+```
+
+### Building / Watching Source
+
+Using Visual Studio Code:
+
+1. Open this folder in VS Code
+2. Run:
+   ```
+   Terminal → Run Build Task → npm: watch
+   ```
+3. Code will recompile each time you save `.ts` files
+
+---
+
+## 🤝 Contributing
+
+This repository uses a structured branching workflow:
+
+```
+feature/* → developer → main
+```
+
+Please read:  
+**[CONTRIBUTING.md](CONTRIBUTING.md)**
+
+---
+
+## ⭐️ Support
+
+If this plugin helps you, consider giving the repo a **star** ⭐  
+It helps visibility and supports ongoing improvements.
