@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -18,16 +22,13 @@ jobs:
         with:
           node-version: 22
 
-      # Install pnpm
       - uses: pnpm/action-setup@v3
         with:
           version: 10
 
-      # Install dependencies using pnpm
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      # Run semantic release
       - name: Release
         run: npx semantic-release
         env:
