@@ -36,6 +36,16 @@ jobs:
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
 
+      - name: Configure GPG for CI
+        run: |
+          mkdir -p ~/.gnupg
+          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+          echo "default-key ${{ secrets.GPG_KEY_ID }}" >> ~/.gnupg/gpg.conf
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          gpgconf --reload gpg-agent
+        env:
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+
       - name: Configure Git for Signed Commits
         run: |
           git config user.signingkey ${{ secrets.GPG_KEY_ID }}
