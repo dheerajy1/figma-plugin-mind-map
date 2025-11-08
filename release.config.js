@@ -15,7 +15,7 @@ export default {
     [
       "@semantic-release/github",
       {
-        addReleases: "pr"
+        addReleases: false
       }
     ]
   ]
