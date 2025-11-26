@@ -14,7 +14,7 @@ on:
 jobs:
 
   # ---------------------------
-  # ✅ 1) Build & Lint Job
+  # 1) Build & Lint Job
   # ---------------------------
   build_and_lint:
     name: Build & Lint
@@ -22,15 +22,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
-      - run: npm install
-      - run: npm run build
-      - run: npm run lint
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - run: pnpm install
+      - run: pnpm build
+      - run: pnpm lint
 
   # ---------------------------
-  # ✅ 2) Enforce Branch Naming
+  # 2) Enforce Branch Naming
   # Only allow feature/* → developer → main
   # ---------------------------
   validate_branch_name:
@@ -52,7 +58,7 @@ jobs:
         shell: bash
 
   # ---------------------------
-  # ✅ 3) Enforce Semantic PR Title
+  # 3) Enforce Semantic PR Title
   # "feat:", "fix:", "chore:", "refactor:", etc.
   # ---------------------------
   validate_pr_title:
@@ -65,50 +71,65 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ---------------------------
-  # ✅ 4) Validate PR Checklist + Auto Promote Draft
-  # ---------------------------
+# ---------------------------
+# 4) Validate PR Template + Auto Promote Draft
+# ---------------------------
   verify_pr_template:
-    name: Validate PR Checklist
+    name: Validate PR Template
     runs-on: ubuntu-latest
     if: >
       (github.event.pull_request.base.ref == 'developer' ||
-       github.event.pull_request.base.ref == 'main')
+      github.event.pull_request.base.ref == 'main')
 
     steps:
-      - name: Check PR Body for Checklist
+      - name: Read PR Body
         id: prcheck
         run: |
           body=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH")
-          if [[ "$body" == *"[ ]"* ]]; then
-            echo "missing=true" >> $GITHUB_OUTPUT
+
+          # Check Types of changes (at least one box checked)
+          types_checked=$(echo "$body" | grep -E '^\s*-\s*\[x\]\s*Bugfix|^\s*-\s*\[x\]\s*New feature|^\s*-\s*\[x\]\s*Breaking change|^\s*-\s*\[x\]\s*Documentation Update' || true)
+          if [ -z "$types_checked" ]; then
+            echo "types_missing=true" >> $GITHUB_OUTPUT
           else
-            echo "missing=false" >> $GITHUB_OUTPUT
+            echo "types_missing=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: "Status Check: Checklist Missing ❌"
-        if: steps.prcheck.outputs.missing == 'true'
+          # Check Checklist (all must be checked)
+          checklist_total=$(echo "$body" | grep -E '^\s*-\s*\[.\]' | wc -l)
+          checklist_checked=$(echo "$body" | grep -E '^\s*-\s*\[x\]' | wc -l)
+          if [ "$checklist_total" -ne "$checklist_checked" ]; then
+            echo "checklist_missing=true" >> $GITHUB_OUTPUT
+          else
+            echo "checklist_missing=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fail if Types of Changes Missing
+        if: steps.prcheck.outputs.types_missing == 'true'
         run: |
-          echo "Checklist Missing ❌"
+          echo "❌ At least one 'Types of changes' checkbox must be selected."
           exit 1
 
-      - name: "Status Check: Checklist Completed ✅"
-        if: steps.prcheck.outputs.missing == 'false'
+      - name: Fail if Checklist Incomplete
+        if: steps.prcheck.outputs.checklist_missing == 'true'
         run: |
-          echo "Checklist Completed ✅"
+          echo "❌ All Checklist items must be completed."
+          exit 1
 
-      - name: Leave Comment if Checklist is Incomplete
-        if: steps.prcheck.outputs.missing == 'true'
+      - name: Leave Comment if PR Template Invalid
+        if: steps.prcheck.outputs.types_missing == 'true' || steps.prcheck.outputs.checklist_missing == 'true'
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            ⚠️ **Checklist items are incomplete.**
-            Please check all required items before marking this PR ready.
+            ⚠️ **PR Template validation failed.**
+            Please ensure:
+            - At least one box in **Types of changes** is checked.
+            - All boxes in **Checklist** are checked.
 
-      - name: Auto-Mark PR Ready for Review When Checklist Complete
-        if: steps.prcheck.outputs.missing == 'false' && github.event.pull_request.draft == 'true'
+      - name: Auto-Mark PR Ready for Review When Template Complete
+        if: steps.prcheck.outputs.types_missing == 'false' && steps.prcheck.outputs.checklist_missing == 'false' && github.event.pull_request.draft == 'true'
         uses: actions/github-script@v7
         with:
           script: |
