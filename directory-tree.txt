@@ -1,13 +1,21 @@
 ├── .github
 │  ├── CODEOWNERS
+│  ├── labeler.yml
+│  ├── pull_request_template.md
 │  └── workflows
-│    └── ci.yml
+│    ├── auto-label.yml
+│    ├── ci.yml
+│    ├── release.yml
+│    ├── validate-pr-title.yml
+│    └── verify-branch-source.yml
 ├── .gitignore
 ├── code.ts
+├── CONTRIBUTING.md
 ├── directory-tree.txt
 ├── LICENSE
 ├── manifest.json
 ├── package.json
 ├── README.md
+├── release.config.js
 ├── tsconfig.json
 └── ui.html
