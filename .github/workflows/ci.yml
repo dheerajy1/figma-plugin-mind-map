@@ -87,21 +87,27 @@ jobs:
         run: |
           body=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH")
 
-          # Check Types of changes (at least one box checked)
-          types_checked=$(echo "$body" | grep -E '^\s*-\s*\[x\]\s*Bugfix|^\s*-\s*\[x\]\s*New feature|^\s*-\s*\[x\]\s*Breaking change|^\s*-\s*\[x\]\s*Documentation Update' || true)
-          if [ -z "$types_checked" ]; then
-            echo "types_missing=true" >> $GITHUB_OUTPUT
-          else
-            echo "types_missing=false" >> $GITHUB_OUTPUT
-          fi
+          # Extract only the "Checklist" section
+          checklist_section=$(echo "$body" | awk '/## Checklist/{flag=1;next}/## /{flag=0}flag')
 
-          # Check Checklist (all must be checked)
-          checklist_total=$(echo "$body" | grep -E '^\s*-\s*\[.\]' | wc -l)
-          checklist_checked=$(echo "$body" | grep -E '^\s*-\s*\[x\]' | wc -l)
+          # Check checkboxes INSIDE the checklist only
+          checklist_total=$(echo "$checklist_section" | grep -E '^\s*-\s*\[.\]' | wc -l)
+          checklist_checked=$(echo "$checklist_section" | grep -E '^\s*-\s*\[x\]' | wc -l)
+
           if [ "$checklist_total" -ne "$checklist_checked" ]; then
             echo "checklist_missing=true" >> $GITHUB_OUTPUT
           else
             echo "checklist_missing=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Types of changes: match only that section
+          types_section=$(echo "$body" | awk '/## Types of changes/{flag=1;next}/## /{flag=0}flag')
+
+          types_checked=$(echo "$types_section" | grep -E '^\s*-\s*\[x\]' || true)
+          if [ -z "$types_checked" ]; then
+            echo "types_missing=true" >> $GITHUB_OUTPUT
+          else
+            echo "types_missing=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Fail if Types of Changes Missing
