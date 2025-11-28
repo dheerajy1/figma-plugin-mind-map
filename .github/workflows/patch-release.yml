@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write # <--- ADDED: Needed to create and merge PRs
 
 jobs:
   create-branch:
@@ -58,7 +59,6 @@ jobs:
           npm version ${{ steps.check.outputs.version }} --no-git-tag-version --allow-same-version
           
           # 2. Generate CHANGELOG.md manually
-          # We use npx to run conventional-changelog-cli without installing it globally
           npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
           
           echo "Updated package.json version: $(jq -r .version package.json)"
@@ -68,25 +68,18 @@ jobs:
       - name: Setup GPG for Signing (with Passphrase)
         if: steps.check.outputs.has_changes == 'true'
         env:
-          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}  # Pulled from secret
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
         run: |
-          # Write armored private key to temp file
           echo "${{ secrets.GPG_PRIVATE_KEY }}" > /tmp/gpg-private.asc
-          
-          # Import armored key with passphrase
           echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --batch --yes --no-tty --passphrase-fd 0 --import /tmp/gpg-private.asc
-          
-          # Clean up
           rm /tmp/gpg-private.asc
           
-          # Wrapper script: Injects passphrase for all GPG calls (signing)
           cat > /tmp/gpg-wrapper.sh << 'EOF'
           #!/bin/bash
           exec gpg --batch --yes --no-tty --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" "$@"
           EOF
           chmod +x /tmp/gpg-wrapper.sh
           
-          # Verify (uses secret-pulled ID)
           gpg --list-secret-keys --keyid-format LONG | grep "$GPG_KEY_ID" || (echo "❌ Key import failed!" && exit 1)
           
           echo "✅ GPG key imported: $GPG_KEY_ID"
@@ -99,16 +92,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.check.outputs.version }}
           KEYID: ${{ env.KEYID }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}  # For wrapper
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          # Git config with wrapper for passphrase
           git config --global user.name "dheerajy1"
           git config --global user.email "yssdhiraj@gmail.com"
           git config --global gpg.program "${{ env.GPG_WRAPPER }}"
           git config --global user.signingkey "$KEYID"
           git config --global commit.gpgsign true
           
-          # Remote with token
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
           
           BRANCH_NAME="patch-release-${VERSION}"
@@ -117,27 +108,50 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           git add package.json CHANGELOG.md
           
-          git commit -S -m "chore(release): prepare patch release ${VERSION}
-
-          - Updated package.json to version ${VERSION}
-          - Generated CHANGELOG.md
-
-          [skip ci]" || (echo "No changes to commit" && exit 0)
+          git commit -S -m "chore(release): ${VERSION} [skip ci]" || (echo "No changes to commit" && exit 0)
           
           git push -u origin "$BRANCH_NAME"
           
           echo "✅ Signed branch pushed: $BRANCH_NAME"
-          echo "Commit URL: https://github.com/${{ github.repository }}/commit/$(git rev-parse HEAD)"
+
+      # --- NEW STEP STARTS HERE ---
+      - name: Create and Auto-Merge PR
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.check.outputs.version }}
+          # We use github.ref_name (e.g., 'test-release') as the base to merge INTO
+          BASE_BRANCH: ${{ github.ref_name }} 
+        run: |
+          BRANCH_NAME="patch-release-${VERSION}"
+          
+          echo "🚀 Creating PR from $BRANCH_NAME into $BASE_BRANCH"
+          
+          # 1. Create the Pull Request
+          PR_URL=$(gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$BRANCH_NAME" \
+            --title "chore(release): ${VERSION}" \
+            --body "Automated release PR for version ${VERSION}. Includes version bump and changelog updates." \
+            --label "autorelease")
+          
+          echo "✅ PR Created: $PR_URL"
+          
+          # 2. Enable Auto-Merge with Squash
+          # --auto: Merge automatically when requirements (CI checks) are met
+          # --squash: Squash commits into one
+          # --delete-branch: Delete the 'patch-release-x.x.x' branch after merge
+          gh pr merge "$BRANCH_NAME" --auto --squash --delete-branch
+          
+          echo "✅ Auto-merge enabled for $BRANCH_NAME"
 
       - name: Summary
         if: steps.check.outputs.has_changes == 'true'
         run: |
-          echo "## 🎉 Patch Release Branch Created" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** \`patch-release-${{ steps.check.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎉 Patch Release PR Created" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ steps.check.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Signed:** Yes (GPG verified)" >> $GITHUB_STEP_SUMMARY
-          echo "[View branch](https://github.com/${{ github.repository }}/tree/patch-release-${{ steps.check.outputs.version }})" >> $GITHUB_STEP_SUMMARY
-
+          echo "**Status:** Auto-merge enabled (Squash)" >> $GITHUB_STEP_SUMMARY
+      
       - name: No Changes
         if: steps.check.outputs.has_changes == 'false'
         run: |
