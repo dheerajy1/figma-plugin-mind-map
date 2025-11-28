@@ -54,7 +54,8 @@ jobs:
           IS_PROD: false
         run: |
           echo "⚙️ Generating release files on branch: ${{ github.ref_name }}"
-          npx semantic-release --no-ci --branches "${{ github.ref_name }}"
+          # Run prepare-only (analyze + notes + prepare; skips tag/publish due to branches: ["main"])
+          npx semantic-release --no-ci --dry-run=false --ci=false
           echo "Updated package.json version: $(jq -r .version package.json)"
           echo "CHANGELOG.md preview:"
           head -n 20 CHANGELOG.md
