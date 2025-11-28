@@ -1,10 +1,17 @@
 export default {
   branches: ["main", "test-release"],
-  tagFormat: process.env.IS_PROD ? 'v${version}' : null,
+  tagFormat: 'v${version}',
   plugins: [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
     ["@semantic-release/changelog", { changelogFile: "CHANGELOG.md" }],
-    ["@semantic-release/npm", { npmPublish: false }]
+    ["@semantic-release/npm", { npmPublish: false }],
+    // Conditionally include git plugin only for main branch
+    ...(process.env.IS_PROD === 'true' ? [
+      ["@semantic-release/git", {
+        assets: ["CHANGELOG.md", "package.json"],
+        message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }]
+    ] : [])
   ]
 };

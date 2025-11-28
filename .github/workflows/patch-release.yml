@@ -47,14 +47,16 @@ jobs:
             echo "No changes to release"
           fi
 
-      - name: Generate Files
+      - name: Generate Files  
         if: steps.check.outputs.has_changes == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          IS_PROD: false
         run: |
           echo "⚙️ Generating release files on branch: ${{ github.ref_name }}"
-          npx semantic-release --branches "${{ github.ref_name }}"
+          
+          # Dry-run generates files but doesn't create tags/releases
+          npx semantic-release --branches "${{ github.ref_name }}" --dry-run
+          
           echo "Updated package.json version: $(jq -r .version package.json)"
           echo "CHANGELOG.md preview:"
           head -n 20 CHANGELOG.md
