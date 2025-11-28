@@ -108,7 +108,7 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           git add package.json CHANGELOG.md
           
-          git commit -S -m "chore(release): ${VERSION} [skip ci]" || (echo "No changes to commit" && exit 0)
+          git commit -S -m "chore: changelog updates and version bump  ${VERSION}" || (echo "No changes to commit" && exit 0)
           
           git push -u origin "$BRANCH_NAME"
           
@@ -124,6 +124,10 @@ jobs:
           BASE_BRANCH: ${{ github.ref_name }} 
         run: |
           BRANCH_NAME="patch-release-${VERSION}"
+
+          # --- FIX: Ensure the label exists before applying it ---
+          # --force allows it to overwrite if it exists, || true ensures it doesn't fail the job
+          # gh label create "chore" --color "b60205" --description "chore PR" --force || true
           
           echo "🚀 Creating PR from $BRANCH_NAME into $BASE_BRANCH"
           
@@ -131,9 +135,9 @@ jobs:
           PR_URL=$(gh pr create \
             --base "$BASE_BRANCH" \
             --head "$BRANCH_NAME" \
-            --title "chore(release): ${VERSION}" \
-            --body "Automated release PR for version ${VERSION}. Includes version bump and changelog updates." \
-            --label "autorelease")
+            --title "chore: ${VERSION}" \
+            --body "Automated chore PR for version ${VERSION}. Includes version bump and changelog updates." \
+            --label "chore")
           
           echo "✅ PR Created: $PR_URL"
           
