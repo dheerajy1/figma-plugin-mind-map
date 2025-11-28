@@ -1,5 +1,6 @@
 export default {
-  branches: ["main"],
+  branches: ["main", "test-release"],
+  tagFormat: process.env.IS_PROD ? 'v${version}' : null,
   plugins: [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
