@@ -54,8 +54,12 @@ jobs:
         run: |
           echo "⚙️ Generating release files on branch: ${{ github.ref_name }}"
           
-          # Run without dry-run but with no-ci to generate files without pushing
-          npx semantic-release --branches "${{ github.ref_name }}" --no-ci
+          # 1. Update package.json version without creating a git tag
+          npm version ${{ steps.check.outputs.version }} --no-git-tag-version --allow-same-version
+          
+          # 2. Generate CHANGELOG.md manually
+          # We use npx to run conventional-changelog-cli without installing it globally
+          npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
           
           echo "Updated package.json version: $(jq -r .version package.json)"
           echo "CHANGELOG.md preview:"
