@@ -54,8 +54,8 @@ jobs:
         run: |
           echo "⚙️ Generating release files on branch: ${{ github.ref_name }}"
           
-          # Dry-run generates files but doesn't create tags/releases
-          npx semantic-release --branches "${{ github.ref_name }}" --dry-run
+          # Run without dry-run but with no-ci to generate files without pushing
+          npx semantic-release --branches "${{ github.ref_name }}" --no-ci
           
           echo "Updated package.json version: $(jq -r .version package.json)"
           echo "CHANGELOG.md preview:"
