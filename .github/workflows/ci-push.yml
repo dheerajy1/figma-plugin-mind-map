@@ -1,0 +1,27 @@
+name: CI (Push)
+
+on:
+  push:
+    branches:
+      - developer
+      - main
+      - feature/**
+
+permissions:
+  contents: read
+
+jobs:
+  build_and_lint:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - run: pnpm install
+      - run: pnpm build
+      - run: pnpm lint
