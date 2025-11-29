@@ -1,5 +1,5 @@
 export default {
-  branches: ["main", { name: "test/staging", prerelease: true }],
+  branches: ["main", { name: "test/staging", prerelease: "rc" },],
   plugins: [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
