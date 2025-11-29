@@ -138,7 +138,6 @@ jobs:
           git add package.json CHANGELOG.md
           
           git commit -S -m "chore: generate changelog and version bump ${VERSION}
-
           - Generated CHANGELOG
           - Updated version to ${VERSION}" || (echo "No changes to commit" && exit 0)
           
