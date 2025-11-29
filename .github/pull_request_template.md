@@ -17,6 +17,7 @@ _Put an `x` in the boxes that apply_
 - [ ] New feature (changes which adds functionality)
 - [ ] Breaking change (big changes that affect existing functionality)
 - [ ] Documentation Update
+- [ ] Test/Chore Scenarios (workflow, steps, expected outcomes, and coverage of changes)
 
 ## Checklist
 
