@@ -88,7 +88,7 @@ jobs:
           # Force semantic-release to believe it's on the PR branch
           export GITHUB_REF="refs/heads/${CURRENT_BRANCH}"
 
-          npx semantic-release --dry-run --branch "$CURRENT_BRANCH" > release-output.txt 2>&1 || true
+          npx semantic-release --dry-run --branch "main" > release-output.txt 2>&1 || true
 
           cat release-output.txt
 
