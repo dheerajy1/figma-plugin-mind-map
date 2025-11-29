@@ -1,9 +1,6 @@
 name: Prepare Patch Release
 
 on:
-  push:
-    branches:
-      - test/developer
   issue_comment:
     types: [created]
 
