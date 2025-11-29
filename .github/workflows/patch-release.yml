@@ -50,6 +50,21 @@ jobs:
           ref: ${{ steps.pr.outputs.head_ref }}
           fetch-depth: 0
 
+      - name: Fix Git Branch Detection
+        run: |
+          # Ensure we're actually on the branch, not detached HEAD
+          git checkout -B ${{ steps.pr.outputs.head_ref }}
+          git branch --set-upstream-to=origin/${{ steps.pr.outputs.head_ref }} || true
+          
+          # Verify
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Current branch: $CURRENT_BRANCH"
+          
+          if [ "$CURRENT_BRANCH" != "${{ steps.pr.outputs.head_ref }}" ]; then
+            echo "::error::Branch mismatch! Expected ${{ steps.pr.outputs.head_ref }}, got $CURRENT_BRANCH"
+            exit 1
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -66,15 +81,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "🔍 Checking version for branch: ${{ steps.pr.outputs.head_ref }}"
-          npx semantic-release --dry-run --branches "${{ steps.pr.outputs.head_ref }}" > release-output.txt 2>&1 || true
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Checking version for branch: $CURRENT_BRANCH"
+          
+          # Run semantic-release WITHOUT --branches flag
+          # Let it detect the branch automatically from git
+          npx semantic-release --dry-run > release-output.txt 2>&1 || true
           cat release-output.txt
 
           if grep -q "the next release version is" release-output.txt; then
             VERSION=$(grep -oP "the next release version is \K[0-9]+\.[0-9]+\.[0-9]+" release-output.txt)
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "✅ New version: $VERSION"
+            echo "New version: $VERSION"
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "No changes to release"
