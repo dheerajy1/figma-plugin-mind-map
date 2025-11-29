@@ -1,0 +1,88 @@
+name: CI (PR)
+
+on:
+  pull_request:
+    branches:
+      - developer
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # -----------------------------------
+  # 1) Build & Lint (Same as before)
+  # -----------------------------------
+  build_and_lint:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - run: pnpm install
+      - run: pnpm build
+      - run: pnpm lint
+
+  # -----------------------------------
+  # 2) Validate Branch Naming
+  # PR ONLY
+  # -----------------------------------
+  validate_branch_name:
+    name: Validate Branch Naming
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Check source branch name"
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "Branch name: $BRANCH"
+          if [[ "$BRANCH" != feature/* && "$BRANCH" != developer && "$BRANCH" != main ]]; then
+            echo "❌ Invalid branch name. Allowed:"
+            echo " - feature/*"
+            echo " - developer"
+            echo " - main"
+            exit 1
+          fi
+
+  # -----------------------------------
+  # 3) Validate Semantic PR title
+  # -----------------------------------
+  validate_pr_title:
+    name: Validate PR Title Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -----------------------------------
+  # 4) Validate PR template only when targeting developer/main
+  # -----------------------------------
+  verify_pr_template:
+    name: Validate PR Template
+    runs-on: ubuntu-latest
+    if: >
+      github.event.pull_request.base.ref == 'developer' ||
+      github.event.pull_request.base.ref == 'main'
+
+    steps:
+      - name: Read PR Body
+        id: prcheck
+        run: |
+          body=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH")
+
+          checklist_section=$(echo "$body" | awk '/## Checklist/{flag=1;next}/## /{flag=0}flag')
+
+          checklist_total=$(echo "$checklist_section" | grep -E '^\s*-\s*\[.\]' | wc -l)
+          checklist_checked=$(echo "$checklist_section" | grep -E '^\s*-\s*\[x\]' | wc -l)
+
+          echo "Checklist: $checklist_checked / $checklist_total"
+          if [[ "$checklist_checked" -ne "$checklist_total" ]]; then
+            echo "::error::All checklist items must be checked."
+            exit 1
+          fi

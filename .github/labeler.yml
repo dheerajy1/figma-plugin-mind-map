@@ -15,3 +15,6 @@ chore:
 
 release:
   - base-branch: 'main'
+
+test:
+  - base-branch: '^test/.*'

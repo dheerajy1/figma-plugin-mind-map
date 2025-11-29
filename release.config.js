@@ -1,10 +1,9 @@
 export default {
-  branches: ["main"],
+  branches: ["main", "test/staging"],
   plugins: [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
     ["@semantic-release/changelog", { changelogFile: "CHANGELOG.md" }],
-    ["@semantic-release/npm", { npmPublish: false }],
-    "@semantic-release/github"
+    ["@semantic-release/npm", { npmPublish: false }]
   ]
 };
