@@ -67,12 +67,25 @@ jobs:
           echo "CHANGELOG.md preview:"
           head -n 20 CHANGELOG.md
 
-      # Install and enable gitsign for OIDC signing (Verified green badge)
       - name: Install gitsign
         if: steps.check.outputs.has_changes == 'true'
         run: |
-          curl -sSL https://github.com/sigstore/gitsign/releases/latest/download/gitsign_amd64.deb -o gitsign.deb
-          sudo dpkg -i gitsign.deb
+          echo "Installing gitsign..."
+
+          GITSIGN_VERSION=$(curl -s https://api.github.com/repos/sigstore/gitsign/releases/latest | jq -r .tag_name)
+          echo "Latest gitsign version: $GITSIGN_VERSION"
+
+          curl -sSL \
+            "https://github.com/sigstore/gitsign/releases/download/$GITSIGN_VERSION/gitsign_${GITSIGN_VERSION#v}_linux_amd64.tar.gz" \
+            -o gitsign.tar.gz
+
+          mkdir gitsign
+          tar -xzf gitsign.tar.gz -C gitsign
+
+          sudo install -m 0755 gitsign/gitsign /usr/local/bin/gitsign
+
+          gitsign version
+
 
       - name: Configure git for OIDC signing
         if: steps.check.outputs.has_changes == 'true'
