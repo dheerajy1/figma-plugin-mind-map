@@ -34,7 +34,7 @@ jobs:
             console.log(`PR from: ${pr.data.head.ref} → ${pr.data.base.ref}`);
 
       - name: Validate PR source → target
-        if: ${{ steps.pr.outputs.head_ref != 'test/developer' || steps.pr.outputs.base_ref != 'test/staging' }}
+        if: steps.pr.outputs.head_ref != 'test/developer' || steps.pr.outputs.base_ref != 'test/staging'
         run: |
           echo "::error::This workflow only works on PRs from test/developer → test/staging"
           echo "Current PR: ${{ steps.pr.outputs.head_ref }} → ${{ steps.pr.outputs.base_ref }}"
@@ -49,6 +49,21 @@ jobs:
         with:
           ref: ${{ steps.pr.outputs.head_ref }}
           fetch-depth: 0
+
+      - name: Setup Git Branch
+        run: |
+          # Ensure we're on the actual branch, not detached HEAD
+          git checkout -B ${{ steps.pr.outputs.head_ref }}
+          git branch --set-upstream-to=origin/${{ steps.pr.outputs.head_ref }}
+          
+          # Verify current branch
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Current branch: $CURRENT_BRANCH"
+          
+          if [ "$CURRENT_BRANCH" != "${{ steps.pr.outputs.head_ref }}" ]; then
+            echo "::error::Failed to checkout correct branch"
+            exit 1
+          fi
 
       - uses: actions/setup-node@v4
         with:
@@ -66,8 +81,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Checking version for branch: ${{ steps.pr.outputs.head_ref }}"
-          npx semantic-release --dry-run --branches "${{ steps.pr.outputs.head_ref }}" > release-output.txt 2>&1 || true
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Checking version for branch: $CURRENT_BRANCH"
+          
+          # Run semantic-release dry-run without specifying branches
+          # It will use the current branch automatically
+          npx semantic-release --dry-run > release-output.txt 2>&1 || true
           cat release-output.txt
 
           if grep -q "the next release version is" release-output.txt; then
