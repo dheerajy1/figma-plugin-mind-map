@@ -32,6 +32,7 @@ jobs:
       - name: Install deps (fast)
         run: pnpm install --frozen-lockfile
 
+      # Detect new release version
       - name: Check for New Version
         id: check
         env:
@@ -51,6 +52,7 @@ jobs:
             echo "No changes to release"
           fi
 
+      # Generate package.json + CHANGELOG
       - name: Generate Files
         if: steps.check.outputs.has_changes == 'true'
         env:
@@ -58,21 +60,21 @@ jobs:
         run: |
           echo "Generating release files on branch: ${{ github.ref_name }}"
 
-          # 1. Update package.json version without creating a git tag
           npm version ${{ steps.check.outputs.version }} --no-git-tag-version --allow-same-version
-
-          # 2. Generate CHANGELOG.md manually with conventional-changelog-cli
           npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
 
           echo "Updated package.json version: $(jq -r .version package.json)"
           echo "CHANGELOG.md preview:"
           head -n 20 CHANGELOG.md
 
-      - name: Install gitsign (Chainguard)
+      # Install and enable gitsign for OIDC signing (Verified green badge)
+      - name: Install gitsign
         if: steps.check.outputs.has_changes == 'true'
-        uses: chainguard-dev/actions/setup-gitsign@v1.0.2
+        run: |
+          curl -sSL https://github.com/sigstore/gitsign/releases/latest/download/gitsign_amd64.deb -o gitsign.deb
+          sudo dpkg -i gitsign.deb
 
-      - name: Configure git for signed commits
+      - name: Configure git for OIDC signing
         if: steps.check.outputs.has_changes == 'true'
         run: |
           git config --global user.name "github-actions[bot]"
@@ -80,22 +82,18 @@ jobs:
           git config --global gpg.x509.program gitsign
           git config --global gpg.format x509
           git config --global commit.gpgsign true
+          git config --global tag.gpgSign true
 
-      - name: Create Signed Branch and Commit
+      # Commit + push signed commit
+      - name: Create Signed Branch Commit
         if: steps.check.outputs.has_changes == 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.check.outputs.version }}
         run: |
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+          BRANCH="release/test-developer-v$VERSION"
+          git checkout -b "$BRANCH"
 
-          BRANCH_NAME="patch-release-${VERSION}"
-          echo "Creating branch: $BRANCH_NAME"
-          git checkout -b "$BRANCH_NAME"
           git add package.json CHANGELOG.md
+          git commit -m "chore(release): v$VERSION" --signoff
 
-          # commit signed (gitsign via gpg.x509.program)
-          git commit -S -m "chore: generate changelog and version bump ${VERSION}" || (echo "No changes to commit" && exit 0)
-
-          git push -u origin "$BRANCH_NAME"
-          echo "Pushed branch: $BRANCH_NAME"
+          git push origin "$BRANCH"
