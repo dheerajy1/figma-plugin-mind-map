@@ -1,0 +1,86 @@
+name: Test Patch Release
+
+on:
+  push:
+    branches:
+      - test/developer
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write   # required for gitsign
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---------------------------------------------------
+      # Checkout repo
+      # ---------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ---------------------------------------------------
+      # Install gitsign for Sigstore verified commits
+      # ---------------------------------------------------
+      - name: Setup gitsign
+        uses: chainguard-dev/actions/setup-gitsign@v1.0.2
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global commit.gpgsign true
+          git config --global gpg.format x509
+          git config --global gpg.x509.program gitsign
+
+      # ---------------------------------------------------
+      # Compute new version from package.json
+      # ---------------------------------------------------
+      - name: Bump patch version
+        id: bump
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          NEW_VERSION=$(echo $VERSION | awk -F. '{$NF+=1}1' OFS=.)
+          jq ".version = \"$NEW_VERSION\"" package.json > package.json.tmp
+          mv package.json.tmp package.json
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      # ---------------------------------------------------
+      # Generate real changelog using chainguard release-notes
+      # ---------------------------------------------------
+      - name: Generate Release Notes
+        uses: chainguard-dev/actions/release-notes@v1.0.2
+        with:
+          branch_name: 'test/developer'
+          changelog_filename: 'CHANGELOG.md'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---------------------------------------------------
+      # Create release branch
+      # ---------------------------------------------------
+      - name: Create release branch
+        run: |
+          BR="patch-release-${{ steps.bump.outputs.new_version }}"
+          echo "BRANCH=$BR" >> $GITHUB_ENV
+          git checkout -b "$BR"
+
+      # ---------------------------------------------------
+      # Commit all changes (SIGNED via gitsign)
+      # ---------------------------------------------------
+      - name: Commit changes
+        run: |
+          git add package.json CHANGELOG.md
+          git commit -S -m "chore: patch release ${{ steps.bump.outputs.new_version }}"
+
+      # ---------------------------------------------------
+      # Push branch
+      # ---------------------------------------------------
+      - name: Push branch
+        run: |
+          git push origin "$BRANCH"
+        env:
+          BRANCH: ${{ env.BRANCH }}
