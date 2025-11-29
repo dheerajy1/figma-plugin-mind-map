@@ -38,7 +38,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Checking version for branch: ${{ github.ref_name }}"
-          # run semantic-release dry-run to detect next version (no publish)
           npx semantic-release --dry-run --branches "${{ github.ref_name }}" > release-output.txt 2>&1 || true
           cat release-output.txt
 
