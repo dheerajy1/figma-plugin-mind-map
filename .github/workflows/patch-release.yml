@@ -16,30 +16,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get PR details
-        id: pr
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            });
-            return pr.data;
-          result-encoding: string
 
       - name: Validate PR source → target
+        if: ${{ github.event.pull_request.head.ref != 'test/developer' || github.event.pull_request.base.ref != 'test/staging' }}
         run: |
-          HEAD=$(echo '${{ steps.pr.outputs.result }}' | jq -r '.head.ref')
-          BASE=$(echo '${{ steps.pr.outputs.result }}' | jq -r '.base.ref')
+          echo "::error::This workflow only works on PRs from test/developer → test/staging"
+          exit 1
 
-          echo "PR from: $HEAD → $BASE"
+      - name: Debug PR Info
+        run: |
+          echo "PR from: ${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}"
 
-          if [ "$HEAD" != "test/developer" ] || [ "$BASE" != "test/staging" ]; then
-            echo "::error::This workflow only works on PRs from test/developer → test/staging"
-            exit 1
-          fi
 
       - name: Checkout PR HEAD (test/developer)
         uses: actions/checkout@v4
@@ -156,8 +143,6 @@ jobs:
           
           echo "Creating PR from $BRANCH_NAME into $BASE_BRANCH"
           
-          # Create the Pull Request using the 'chore' label (which usually exists by default) 
-          # --label "chore"
           PR_URL=$(gh pr create \
             --base "$BASE_BRANCH" \
             --head "$BRANCH_NAME" \
