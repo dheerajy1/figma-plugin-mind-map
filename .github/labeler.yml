@@ -17,4 +17,4 @@ release:
   - base-branch: 'main'
 
 test:
-  - base-branch: '^test/.*'
+  - head-branch: '^test/.*'
