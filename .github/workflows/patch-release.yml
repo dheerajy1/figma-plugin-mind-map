@@ -50,21 +50,6 @@ jobs:
           ref: ${{ steps.pr.outputs.head_ref }}
           fetch-depth: 0
 
-      - name: Setup Git Branch
-        run: |
-          # Ensure we're on the actual branch, not detached HEAD
-          git checkout -B ${{ steps.pr.outputs.head_ref }}
-          git branch --set-upstream-to=origin/${{ steps.pr.outputs.head_ref }}
-          
-          # Verify current branch
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          echo "Current branch: $CURRENT_BRANCH"
-          
-          if [ "$CURRENT_BRANCH" != "${{ steps.pr.outputs.head_ref }}" ]; then
-            echo "::error::Failed to checkout correct branch"
-            exit 1
-          fi
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -81,19 +66,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          echo "Checking version for branch: $CURRENT_BRANCH"
-          
-          # Run semantic-release dry-run without specifying branches
-          # It will use the current branch automatically
-          npx semantic-release --dry-run > release-output.txt 2>&1 || true
+          echo "🔍 Checking version for branch: ${{ steps.pr.outputs.head_ref }}"
+          npx semantic-release --dry-run --branches "${{ steps.pr.outputs.head_ref }}" > release-output.txt 2>&1 || true
           cat release-output.txt
 
           if grep -q "the next release version is" release-output.txt; then
             VERSION=$(grep -oP "the next release version is \K[0-9]+\.[0-9]+\.[0-9]+" release-output.txt)
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "New version: $VERSION"
+            echo "✅ New version: $VERSION"
           else
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "No changes to release"
@@ -145,7 +126,7 @@ jobs:
           KEYID: ${{ env.KEYID }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          git config --global user.name "github-actions[bot]"
+          git config --global user.name "dheerajy1"
           git config --global user.email "yssdhiraj@gmail.com"
           git config --global gpg.program "${{ env.GPG_WRAPPER }}"
           git config --global user.signingkey "$KEYID"
@@ -159,9 +140,7 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           git add package.json CHANGELOG.md
           
-          git commit -S -m "chore: generate changelog and version bump ${VERSION}
-          - Generated CHANGELOG
-          - Updated version to ${VERSION}" || (echo "No changes to commit" && exit 0)
+          git commit -S -m "chore: changelog updates and version bump ${VERSION}" || (echo "No changes to commit" && exit 0)
           
           git push -u origin "$BRANCH_NAME"
           
@@ -176,27 +155,26 @@ jobs:
         run: |
           BRANCH_NAME="patch-release-${VERSION}"
           
-          echo "Creating PR from $BRANCH_NAME into $BASE_BRANCH"
+          echo "🚀 Creating PR from $BRANCH_NAME into $BASE_BRANCH"
           
           PR_URL=$(gh pr create \
             --base "$BASE_BRANCH" \
             --head "$BRANCH_NAME" \
-            --title "chore: generate changelog and version bump ${VERSION}" \
-            --body "This pr is auto generated for chore: generate changelog and version bump ${VERSION}.
-
-            - Includes changelog updates and 
-            - version bump.")
+            --title "chore: changelog updates and version bump ${VERSION}" \
+            --body "Automated chore PR for version ${VERSION}. Includes version bump and changelog updates.")
           
           echo "PR Created: $PR_URL"
 
-      - name: Release Summary
+      - name: Summary
+        if: steps.check.outputs.has_changes == 'true'
         run: |
-          if [ "${{ steps.check.outputs.has_changes }}" = "true" ]; then
-            echo "## 🎉 Patch Release PR Created" >> $GITHUB_STEP_SUMMARY
-            echo "**Version:** \`${{ steps.check.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "**Status:** Ready for manual merge" >> $GITHUB_STEP_SUMMARY
-            echo "**Action Required:** [Go to Pull Requests](${{ github.server_url }}/${{ github.repository }}/pulls) and merge manually." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## No Release Needed" >> $GITHUB_STEP_SUMMARY
-            echo "No releasable commits found." >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "## 🎉 Patch Release PR Created" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ steps.check.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** Ready for manual merge" >> $GITHUB_STEP_SUMMARY
+          echo "**Action Required:** [Go to Pull Requests](${{ github.server_url }}/${{ github.repository }}/pulls) and merge manually." >> $GITHUB_STEP_SUMMARY
+      
+      - name: No Changes
+        if: steps.check.outputs.has_changes == 'false'
+        run: |
+          echo "## No Release Needed" >> $GITHUB_STEP_SUMMARY
+          echo "No releasable commits found." >> $GITHUB_STEP_SUMMARY
