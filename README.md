@@ -101,8 +101,29 @@ Using Visual Studio Code:
 This repository uses a structured branching workflow:
 
 ```
-feature/* → developer → main
+feature/* → developer → staging → main
 ```
+
+```
+feature/* 
+   ↓ PR (squash feature work)
+developer
+   ↓ PR (Merge, promote to staging)
+staging
+   ↓ PR (merge release, in this pr use /prepare-release as comment to create  patch branch with change log and bump version and merger that pr into staging and later)
+main
+```
+
+## configuration
+
+| Transition          | Method     | Reason                                                        |
+| ------------------- | ---------- | ------------------------------------------------------------- |
+| feature → developer | **Squash** | Keeps developer clean; features become single logical commits |
+| developer → staging | **Merge**  | Groups multiple features cleanly; avoids double-squashing     |
+| staging → main      | **Merge**  | Correct changelog & semantic-release behavior                 |
+
+
+## 
 
 Please read:  
 **[CONTRIBUTING.md](CONTRIBUTING.md)**

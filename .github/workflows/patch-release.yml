@@ -34,9 +34,9 @@ jobs:
             console.log(`PR from: ${pr.data.head.ref} → ${pr.data.base.ref}`);
 
       - name: Validate PR source → target
-        if: steps.pr.outputs.head_ref != 'test/developer' || steps.pr.outputs.base_ref != 'test/staging'
+        if: steps.pr.outputs.head_ref != 'staging' || steps.pr.outputs.base_ref != 'main'
         run: |
-          echo "::error::This workflow only works on PRs from test/developer → test/staging"
+          echo "::error::This workflow only works on PRs from staging → main"
           echo "Current PR: ${{ steps.pr.outputs.head_ref }} → ${{ steps.pr.outputs.base_ref }}"
           exit 1
 
@@ -44,7 +44,7 @@ jobs:
         run: |
           echo "PR from: ${{ steps.pr.outputs.head_ref }} → ${{ steps.pr.outputs.base_ref }}"
 
-      - name: Checkout PR HEAD (test/developer)
+      - name: Checkout PR HEAD
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.pr.outputs.head_ref }}
