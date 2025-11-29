@@ -52,18 +52,19 @@ jobs:
 
       - name: Fix Git Branch Detection
         run: |
-          # Ensure we're actually on the branch, not detached HEAD
+          # 1. Checkout the specific PR branch
           git checkout -B ${{ steps.pr.outputs.head_ref }}
           git branch --set-upstream-to=origin/${{ steps.pr.outputs.head_ref }} || true
           
+          # 2. IMPORTANT: Fetch tags so semantic-release knows the last version
+          git fetch --tags
+          
+          # 3. Fetch the target branch (test/staging) just in case we need comparison history
+          git fetch origin ${{ steps.pr.outputs.base_ref }}:${{ steps.pr.outputs.base_ref }} || true
+
           # Verify
           CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
           echo "Current branch: $CURRENT_BRANCH"
-          
-          if [ "$CURRENT_BRANCH" != "${{ steps.pr.outputs.head_ref }}" ]; then
-            echo "::error::Branch mismatch! Expected ${{ steps.pr.outputs.head_ref }}, got $CURRENT_BRANCH"
-            exit 1
-          fi
 
       - uses: actions/setup-node@v4
         with:
@@ -81,12 +82,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          CURRENT_BRANCH="${{ steps.pr.outputs.head_ref }}"
           echo "Checking version for branch: $CURRENT_BRANCH"
           
-          # Run semantic-release WITHOUT --branches flag
-          # Let it detect the branch automatically from git
-          npx semantic-release --dry-run > release-output.txt 2>&1 || true
+          # FORCE the branch using the flag, overriding release.config.js
+          npx semantic-release --dry-run --branches "$CURRENT_BRANCH" > release-output.txt 2>&1 || true
+          
           cat release-output.txt
 
           if grep -q "the next release version is" release-output.txt; then
