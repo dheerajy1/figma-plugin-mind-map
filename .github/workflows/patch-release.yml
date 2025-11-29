@@ -85,9 +85,16 @@ jobs:
           CURRENT_BRANCH="${{ steps.pr.outputs.head_ref }}"
           echo "Checking version for branch: $CURRENT_BRANCH"
 
-          # 1. --no-ci: Forces it to run inside a PR/workflow
-          # 2. --branches: dynamically tells it "Treat CURRENT_BRANCH as the release branch"
-          # 3. --dry-run: Don't actually publish
+          # ---------------------------------------------------
+          # FIX: Force the Environment Variable to match the PR Branch
+          # This overrides any default GitHub Actions values
+          # ---------------------------------------------------
+          export GITHUB_REF="refs/heads/$CURRENT_BRANCH"
+
+          # Now run semantic-release:
+          # --no-ci: Run even though we are in a PR
+          # --branches: "Only allow releases from this specific branch name"
+          # --dry-run: Calculate version but do not publish
           npx semantic-release --no-ci --dry-run --branches "$CURRENT_BRANCH" > release-output.txt 2>&1 || true
 
           cat release-output.txt
