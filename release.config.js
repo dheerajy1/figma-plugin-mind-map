@@ -1,7 +1,7 @@
 export default {
   branches: [
     "main",
-    { name: "test/developer", prerelease: false }, // Add this line
+    { name: "test/developer", prerelease: false },
     { name: "test/staging", prerelease: "rc" }
   ],
   plugins: [

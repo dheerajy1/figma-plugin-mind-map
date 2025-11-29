@@ -84,10 +84,12 @@ jobs:
         run: |
           CURRENT_BRANCH="${{ steps.pr.outputs.head_ref }}"
           echo "Checking version for branch: $CURRENT_BRANCH"
-          
-          # FORCE the branch using the flag, overriding release.config.js
-          npx semantic-release --dry-run --branches "$CURRENT_BRANCH" > release-output.txt 2>&1 || true
-          
+
+          # Force semantic-release to believe it's on the PR branch
+          export GITHUB_REF="refs/heads/${CURRENT_BRANCH}"
+
+          npx semantic-release --dry-run --branch "$CURRENT_BRANCH" > release-output.txt 2>&1 || true
+
           cat release-output.txt
 
           if grep -q "the next release version is" release-output.txt; then
