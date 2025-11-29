@@ -2,7 +2,7 @@
 
 This plugin converts a JSON structure into a visual **mind map** inside Figma.  
 It automatically creates nodes and connectors based on hierarchy, making it easy to visualize structured ideas, outlines, research notes, and planning trees.
-
+test commit
 ---
 
 ## 🌳 Example Input
