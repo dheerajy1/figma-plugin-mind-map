@@ -1,5 +1,5 @@
 // FigJam Mind Map with beautiful UI
-figma.showUI(__html__, { width: 540, height: 800 });
+figma.showUI(__html__, { width: 540, height: 850 });
 
 interface TreeNode {
   name: string;
