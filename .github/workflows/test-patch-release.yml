@@ -1,0 +1,102 @@
+name: Test Patch Release
+
+on:
+  push:
+    branches:
+      - test/developer
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install deps (fast)
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for New Version
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking version for branch: ${{ github.ref_name }}"
+          # run semantic-release dry-run to detect next version (no publish)
+          npx semantic-release --dry-run --branches "${{ github.ref_name }}" > release-output.txt 2>&1 || true
+          cat release-output.txt
+
+          if grep -q "the next release version is" release-output.txt; then
+            VERSION=$(grep -oP "the next release version is \K[0-9]+\.[0-9]+\.[0-9]+" release-output.txt)
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "New version: $VERSION"
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to release"
+          fi
+
+      - name: Generate Files
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Generating release files on branch: ${{ github.ref_name }}"
+
+          # 1. Update package.json version without creating a git tag
+          npm version ${{ steps.check.outputs.version }} --no-git-tag-version --allow-same-version
+
+          # 2. Generate CHANGELOG.md manually with conventional-changelog-cli
+          npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
+
+          echo "Updated package.json version: $(jq -r .version package.json)"
+          echo "CHANGELOG.md preview:"
+          head -n 20 CHANGELOG.md
+
+      - name: Install gitsign (Chainguard)
+        if: steps.check.outputs.has_changes == 'true'
+        uses: chainguard-dev/actions/setup-gitsign@v1.0.2
+
+      - name: Configure git for signed commits
+        if: steps.check.outputs.has_changes == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global gpg.x509.program gitsign
+          git config --global gpg.format x509
+          git config --global commit.gpgsign true
+
+      - name: Create Signed Branch and Commit
+        if: steps.check.outputs.has_changes == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+
+          BRANCH_NAME="patch-release-${VERSION}"
+          echo "Creating branch: $BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME"
+          git add package.json CHANGELOG.md
+
+          # commit signed (gitsign via gpg.x509.program)
+          git commit -S -m "chore: generate changelog and version bump ${VERSION}" || (echo "No changes to commit" && exit 0)
+
+          git push -u origin "$BRANCH_NAME"
+          echo "Pushed branch: $BRANCH_NAME"
