@@ -81,21 +81,19 @@ jobs:
         id: check
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # ---------------------------------------------------------
-          # 👇 THIS IS THE FIX. OVERRIDE THE ENVIRONMENT VARIABLE
-          # ---------------------------------------------------------
-          GITHUB_REF: refs/heads/${{ steps.pr.outputs.head_ref }}
         run: |
           CURRENT_BRANCH="${{ steps.pr.outputs.head_ref }}"
           echo "Checking version for branch: $CURRENT_BRANCH"
-          
-          # We also keep the flag just to be safe
-          npx semantic-release --dry-run --branches "$CURRENT_BRANCH" > release-output.txt 2>&1 || true
-          
+
+          # Force semantic-release to believe it's on the PR branch
+          export GITHUB_REF="refs/heads/${CURRENT_BRANCH}"
+
+          npx semantic-release --dry-run --branch "$CURRENT_BRANCH" > release-output.txt 2>&1 || true
+
           cat release-output.txt
 
-          if grep -q "the next release version is" release-output.txt; then
-            VERSION=$(grep -oP "the next release version is \K[0-9]+\.[0-9]+\.[0-9]+" release-output.txt)
+          if grep -qi "next release version is" release-output.txt; then
+            VERSION=$(grep -oiE "next release version is [0-9]+\.[0-9]+\.[0-9]+" release-output.txt | awk '{print $5}')
             echo "version=$VERSION" >> $GITHUB_OUTPUT
             echo "has_changes=true" >> $GITHUB_OUTPUT
             echo "New version: $VERSION"
