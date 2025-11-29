@@ -36,15 +36,15 @@ jobs:
 
           echo "PR from: $HEAD → $BASE"
 
-          if [ "$HEAD" != "test/release" ] || [ "$BASE" != "test/staging" ]; then
-            echo "::error::This workflow only works on PRs from test/release → test/staging"
+          if [ "$HEAD" != "test/developer" ] || [ "$BASE" != "test/staging" ]; then
+            echo "::error::This workflow only works on PRs from test/developer → test/staging"
             exit 1
           fi
 
-      - name: Checkout PR HEAD (test/release)
+      - name: Checkout PR HEAD (test/developer)
         uses: actions/checkout@v4
         with:
-          ref: test/release
+          ref: test/developer
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
